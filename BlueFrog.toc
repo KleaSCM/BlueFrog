@@ -1,0 +1,19 @@
+## Interface: 100100
+## Title: BlueFrog
+## Notes: Displays floating combat text for DPS, damage taken, and healing done/recived buttons and frames to move it.
+## Author: KleaSCM
+## Version: 1.0
+
+BlueFrog.lua
+BlueFrog.xml
+
+
+## version 1.0
+##  Displays floating combat text for DPS, damage taken, and healing done/recived
+## button to allow the player to move the combat text anywhere on the screen. 
+##  seperate damage and healing damage on lft healing on right. damage taken above 
+## added icons to the spells in the scrolling message frames, 
+## swaped CombatLogGetCurrentEventInfo with COMBAT_LOG_EVENT_UNFILTERED for faster event processing
+## added a toggle button to lock/unlock the frames
+## added background frames to the scrolling message frames
+## added larger width to the scrolling message frames to accommodate the spell icons

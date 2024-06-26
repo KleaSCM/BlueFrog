@@ -1,0 +1,12 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Frame name="BlueFrogFrame" hidden="false">
+        <Scripts>
+            <OnLoad>
+                BlueFrogFrame:EnableMouse(true)
+                BlueFrogFrame:RegisterForDrag("LeftButton")
+                BlueFrogFrame:SetScript("OnDragStart", BlueFrogFrame.StartMoving)
+                BlueFrogFrame:SetScript("OnDragStop", BlueFrogFrame.StopMovingOrSizing)
+            </OnLoad>
+        </Scripts>
+    </Frame>
+</Ui>
