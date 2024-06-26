@@ -1,0 +1,84 @@
+-- Variable to control whether frames are movable
+local isMovable = false
+
+-- Create a frame for the main addon window
+local frame = CreateFrame("Frame", "BlueFrogFrame", UIParent)
+frame:SetSize(200, 100)
+frame:SetPoint("CENTER")
+frame:SetMovable(true)  -- Allow frame to be moved
+frame:EnableMouse(true)  -- Enable mouse interaction
+frame:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
+frame:SetScript("OnDragStart", frame.StartMoving)  -- Allow dragging on mouse down
+frame:SetScript("OnDragStop", frame.StopMovingOrSizing)  -- Stop dragging on mouse up
+
+-- Create a toggle button inside the main frame
+local toggleButton = CreateFrame("Button", "BlueFrogToggleButton", frame, "UIPanelButtonTemplate")
+toggleButton:SetSize(80, 22)
+toggleButton:SetPoint("TOP", frame, "BOTTOM", 0, -5)
+toggleButton:SetText("BFCT")  -- Button text
+toggleButton:SetMovable(true)  -- Allow button to be moved
+toggleButton:EnableMouse(true)  -- Enable mouse interaction
+toggleButton:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
+toggleButton:SetScript("OnDragStart", function(self)
+    if IsShiftKeyDown() then
+        self:StartMoving()  -- Start moving button on shift + left click
+    end
+end)
+toggleButton:SetScript("OnDragStop", toggleButton.StopMovingOrSizing)  -- Stop moving button on release
+
+-- Create a scrolling message frame for displaying damage information
+local damageText = CreateFrame("ScrollingMessageFrame", "BlueFrogDamageText", UIParent)
+damageText:SetSize(250, 200)
+damageText:SetPoint("LEFT", UIParent, "CENTER", -300, 0)
+damageText:SetFontObject(GameFontNormalLarge)
+damageText:SetFading(true)
+damageText:SetFadeDuration(1)
+damageText:SetTimeVisible(3)
+damageText:SetMaxLines(20)
+damageText:SetMovable(true)  -- Allow frame to be moved
+damageText:EnableMouse(true)  -- Enable mouse interaction
+damageText:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
+damageText:SetScript("OnDragStart", function(self)
+    if isMovable then
+        self:StartMoving()  -- Start moving frame on left click
+    end
+end)
+damageText:SetScript("OnDragStop", damageText.StopMovingOrSizing)  -- Stop moving frame on release
+
+-- Toggle button functionality to lock/unlock frames and show/hide background frames
+toggleButton:SetScript("OnClick", function()
+    isMovable = not isMovable
+    if isMovable then
+        toggleButton:SetText("Lock ")  -- Change button text to indicate locked state
+    else
+        toggleButton:SetText("BFCT")  -- Reset button text to default
+        damageText:StopMovingOrSizing()  -- Stop moving damage text frame
+    end
+end)
+
+-- Function to display damage text with optional spell icon
+local function displayDamageText(text, r, g, b, spellId)
+    local icon = GetSpellTexture(spellId) or ""
+    damageText:AddMessage("|T" .. icon .. ":20:20:0:0:64:64:5:59:5:59|t " .. text, r, g, b)
+end
+
+-- Event handler to listen for combat log events
+local eventHandler = CreateFrame("Frame")
+eventHandler:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+eventHandler:SetScript("OnEvent", function(self, event, ...)
+    -- Retrieve current combat log event information
+    local timestamp, subEvent, _, sourceGUID, _, sourceName, _, destGUID, destName, _, _, spellId, spellName, _, amount = CombatLogGetCurrentEventInfo()
+
+    -- Check for damage events
+    if subEvent == "SPELL_DAMAGE" or subEvent == "RANGE_DAMAGE" or subEvent == "SWING_DAMAGE" then
+        -- Damage dealt
+        if sourceGUID == UnitGUID("player") then
+            displayDamageText("" .. amount, 1, 0, 0, spellId)  -- Red color for damage dealt by player
+        elseif destGUID == UnitGUID("player") then
+            displayDamageText("" .. amount, 1, 0, 0, spellId)  -- Red color for damage taken by player
+        end
+    end
+end)
+
+-- Print a message on successful addon load
+print("|cFF00FF00BlueFrog successfully loaded!|r")
