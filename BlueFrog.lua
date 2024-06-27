@@ -1,186 +1,182 @@
--- Variable to control whether frames are movable
-local isMovable = false
+--updated to show larger resizeable frames for damage and healing,
+--dmg and healing are showen faster, fixed bug for nill dmg,
+--on MoP Remix dubble bronze patch,
+-- added cusom options for text scrolling, height x width and icons
+-- added user interface options pannel
+--fixed healing frames that prevented user interface from showing
+-- addon now works for MoP remix and retail 
 
--- Create a frame for the main addon window
+-- Main addon frame setup
 local frame = CreateFrame("Frame", "BlueFrogFrame", UIParent)
 frame:SetSize(200, 100)
 frame:SetPoint("CENTER")
-frame:SetMovable(true)  -- Allow frame to be moved
-frame:EnableMouse(true)  -- Enable mouse interaction
-frame:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
-frame:SetScript("OnDragStart", frame.StartMoving)  -- Allow dragging on mouse down
-frame:SetScript("OnDragStop", frame.StopMovingOrSizing)  -- Stop dragging on mouse up
+frame:SetMovable(true)
+frame:EnableMouse(true)
+frame:RegisterForDrag("LeftButton")
+frame:SetScript("OnDragStart", frame.StartMoving)
+frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 
--- Create a toggle button inside the main frame
+-- Storage for addon settings
+BlueFrogSettings = BlueFrogSettings or {
+    fadeDuration = 3,
+    timeVisible = 5,
+    maxLines = 20,
+    fontSize = 12,
+    fontColor = {1, 1, 1},  -- Default to white
+    frameHeight = 200,
+}
+
+-- Function to create the message frame
+local function CreateMessageFrame(name, point, relativePoint, xOffset, yOffset)
+    local frame = CreateFrame("ScrollingMessageFrame", name, UIParent, "BackdropTemplate")
+    frame:SetSize(250, BlueFrogSettings.frameHeight)
+    frame:SetPoint(point, UIParent, relativePoint, xOffset, yOffset)
+    local font, _, flags = GameFontNormalLarge:GetFont()
+    frame:SetFont(font, BlueFrogSettings.fontSize, flags)
+    frame:SetTextColor(unpack(BlueFrogSettings.fontColor))
+    frame:SetFading(true)
+    frame:SetFadeDuration(BlueFrogSettings.fadeDuration)
+    frame:SetTimeVisible(BlueFrogSettings.timeVisible)
+    frame:SetMaxLines(BlueFrogSettings.maxLines)
+    frame:SetInsertMode("BOTTOM")
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", function(self)
+        if isMovable then
+            self:StartMoving()
+        end
+    end)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    return frame
+end
+
+-- Create damage, healing, and damage taken frames
+local damageText = CreateMessageFrame("BlueFrogDamageText", "LEFT", "CENTER", -300, 0)
+local healingText = CreateMessageFrame("BlueFrogHealingText", "RIGHT", "CENTER", 300, 0)
+local damageTakenText = CreateMessageFrame("BlueFrogDamageTakenText", "BOTTOMLEFT", "BOTTOMLEFT", 50, 50)
+
+-- Toggle button to lock and unlock frames
 local toggleButton = CreateFrame("Button", "BlueFrogToggleButton", frame, "UIPanelButtonTemplate")
 toggleButton:SetSize(80, 22)
 toggleButton:SetPoint("TOP", frame, "BOTTOM", 0, -5)
-toggleButton:SetText("BFCT")  -- Button text
-toggleButton:SetMovable(true)  -- Allow button to be moved
-toggleButton:EnableMouse(true)  -- Enable mouse interaction
-toggleButton:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
+toggleButton:SetText("Unlock Frames")
+toggleButton:SetMovable(true)
+toggleButton:EnableMouse(true)
+toggleButton:RegisterForDrag("LeftButton")
 toggleButton:SetScript("OnDragStart", function(self)
     if IsShiftKeyDown() then
-        self:StartMoving()  -- Start moving button on shift + left click
+        self:StartMoving()
     end
 end)
-toggleButton:SetScript("OnDragStop", toggleButton.StopMovingOrSizing)  -- Stop moving button on release
-
--- Create a scrolling message frame for displaying damage information
-local damageText = CreateFrame("ScrollingMessageFrame", "BlueFrogDamageText", UIParent)
-damageText:SetSize(250, 200)
-damageText:SetPoint("LEFT", UIParent, "CENTER", -300, 0)
-damageText:SetFontObject(GameFontNormalLarge)
-damageText:SetFading(true)
-damageText:SetFadeDuration(1)
-damageText:SetTimeVisible(3)
-damageText:SetMaxLines(20)
-damageText:SetMovable(true)  -- Allow frame to be moved
-damageText:EnableMouse(true)  -- Enable mouse interaction
-damageText:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
-damageText:SetScript("OnDragStart", function(self)
-    if isMovable then
-        self:StartMoving()  -- Start moving frame on left click
-    end
-end)
-damageText:SetScript("OnDragStop", damageText.StopMovingOrSizing)  -- Stop moving frame on release
-
--- Create a scrolling message frame for displaying healing information
-local healingText = CreateFrame("ScrollingMessageFrame", "BlueFrogHealingText", UIParent)
-healingText:SetSize(250, 200)
-healingText:SetPoint("RIGHT", UIParent, "CENTER", 300, 0)
-healingText:SetFontObject(GameFontNormalLarge)
-healingText:SetFading(true)
-healingText:SetFadeDuration(1)
-healingText:SetTimeVisible(3)
-healingText:SetMaxLines(20)
-healingText:SetMovable(true)  -- Allow frame to be moved
-healingText:EnableMouse(true)  -- Enable mouse interaction
-healingText:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
-healingText:SetScript("OnDragStart", function(self)
-    if isMovable then
-        self:StartMoving()  -- Start moving frame on left click
-    end
-end)
-healingText:SetScript("OnDragStop", healingText.StopMovingOrSizing)  -- Stop moving frame on release
-
--- Create a scrolling message frame for displaying damage taken information
-local damageTakenText = CreateFrame("ScrollingMessageFrame", "BlueFrogDamageTakenText", UIParent)
-damageTakenText:SetSize(250, 200)
-damageTakenText:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 50, 50)
-damageTakenText:SetFontObject(GameFontNormalLarge)
-damageTakenText:SetFading(true)
-damageTakenText:SetFadeDuration(1)
-damageTakenText:SetTimeVisible(3)
-damageTakenText:SetMaxLines(20)
-damageTakenText:SetMovable(true)  -- Allow frame to be moved
-damageTakenText:EnableMouse(true)  -- Enable mouse interaction
-damageTakenText:RegisterForDrag("LeftButton")  -- Register left mouse button for dragging
-damageTakenText:SetScript("OnDragStart", function(self)
-    if isMovable then
-        self:StartMoving()  -- Start moving frame on left click
-    end
-end)
-damageTakenText:SetScript("OnDragStop", damageTakenText.StopMovingOrSizing)  -- Stop moving frame on release
-
--- Create background frames using BackdropTemplate for each scrolling message frame
-local damageTextBg = CreateFrame("Frame", nil, damageText, BackdropTemplateMixin and "BackdropTemplate")
-damageTextBg:SetAllPoints(damageText)
-damageTextBg:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 }
-})
-damageTextBg:SetBackdropColor(0, 0, 0, 0.5)
-damageTextBg:Hide()  -- Initially hide background frame
-
-local healingTextBg = CreateFrame("Frame", nil, healingText, BackdropTemplateMixin and "BackdropTemplate")
-healingTextBg:SetAllPoints(healingText)
-healingTextBg:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 }
-})
-healingTextBg:SetBackdropColor(0, 0, 0, 0.5)
-healingTextBg:Hide()  -- Initially hide background frame
-
-local damageTakenTextBg = CreateFrame("Frame", nil, damageTakenText, BackdropTemplateMixin and "BackdropTemplate")
-damageTakenTextBg:SetAllPoints(damageTakenText)
-damageTakenTextBg:SetBackdrop({
-    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 }
-})
-damageTakenTextBg:SetBackdropColor(0, 0, 0, 0.5)
-damageTakenTextBg:Hide()  -- Initially hide background frame
-
--- Set toggleButton's functionality to lock/unlock frames and show/hide background frames
+toggleButton:SetScript("OnDragStop", toggleButton.StopMovingOrSizing)
 toggleButton:SetScript("OnClick", function()
     isMovable = not isMovable
-    if isMovable then
-        toggleButton:SetText("Lock ")  -- Change button text to indicate locked state
-        damageTextBg:Show()  -- Show damage text background frame
-        healingTextBg:Show()  -- Show healing text background frame
-        damageTakenTextBg:Show()  -- Show damage taken text background frame
-    else
-        toggleButton:SetText("BFCT")  -- Reset button text to default
-        damageText:StopMovingOrSizing()  -- Stop moving damage text frame
-        healingText:StopMovingOrSizing()  -- Stop moving healing text frame
-        damageTakenText:StopMovingOrSizing()  -- Stop moving damage taken text frame
-        damageTextBg:Hide()  -- Hide damage text background frame
-        healingTextBg:Hide()  -- Hide healing text background frame
-        damageTakenTextBg:Hide()  -- Hide damage taken text background frame
-    end
+    toggleButton:SetText(isMovable and "Lock Frames" or "Unlock Frames")
+    
+    -- Set background based on lock state
+    local bgAlpha = isMovable and 0.5 or 0
+    damageText:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
+    damageText:SetBackdropColor(0, 0, 0, bgAlpha)
+    healingText:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
+    healingText:SetBackdropColor(0, 0, 0, bgAlpha)
+    damageTakenText:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
+    damageTakenText:SetBackdropColor(0, 0, 0, bgAlpha)
 end)
 
--- Function to display damage text with optional spell icon
-local function displayDamageText(text, r, g, b, spellId)
+-- Generic function to display text
+local function displayText(frame, text, r, g, b, spellId)
     local icon = GetSpellTexture(spellId) or ""
-    damageText:AddMessage("|T" .. icon .. ":20:20:0:0:64:64:5:59:5:59|t " .. text, 1, 1, 0)  -- Yellow color for damage text
+    frame:AddMessage("|T" .. icon .. ":20:20:0:0:64:64:5:59:5:59|t " .. text, r, g, b)
 end
 
--- Function to display healing text with optional spell icon
-local function displayHealingText(text, r, g, b, spellId)
-    local icon = GetSpellTexture(spellId) or ""
-    healingText:AddMessage("|T" .. icon .. ":20:20:0:0:64:64:5:59:5:59|t " .. text, 0, 1, 0)  -- Green color for healing text
-end
-
--- Function to display damage taken text with optional spell icon
-local function displayDamageTakenText(text, r, g, b, spellId)
-    local icon = GetSpellTexture(spellId) or ""
-    damageTakenText:AddMessage("|T" .. icon .. ":20:20:0:0:64:64:5:59:5:59|t " .. text, 1, 0, 0)  -- Red color for damage taken text
-end
-
-
--- Event handler to listen for combat log events
+-- Event handler for combat log
 local eventHandler = CreateFrame("Frame")
 eventHandler:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-eventHandler:SetScript("OnEvent", function(self, event, ...)
-    local timestamp, subEvent, _, sourceGUID, _, sourceName, _, destGUID, destName, _, _, spellId, spellName, _, amount = Combat
+eventHandler:SetScript("OnEvent", function(self, event)
+    local _, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, spellId, spellName, _, amount, _, _, _, _, _, critical = CombatLogGetCurrentEventInfo()
 
-    -- Retrieve current combat log event information
-    local timestamp, subEvent, _, sourceGUID, _, sourceName, _, destGUID, destName, _, _, spellId, spellName, _, amount = CombatLogGetCurrentEventInfo()
-
-    -- Check for damage events
     if subEvent == "SPELL_DAMAGE" or subEvent == "RANGE_DAMAGE" or subEvent == "SWING_DAMAGE" then
-        -- Damage dealt
-        if sourceGUID == UnitGUID("player") then
-            displayDamageText("" .. amount, 1, 0, 0, spellId)  -- Red color for damage dealt by player
-        elseif destGUID == UnitGUID("player") then
-            displayDamageTakenText("" .. amount, 1, 0, 0, spellId)  -- Red color for damage taken by player
+        if amount then
+            if sourceGUID == UnitGUID("player") then
+                displayText(damageText, amount .. (critical and " CRIT!" or ""), 1, 0, 0, spellId)
+            elseif destGUID == UnitGUID("player") then
+                displayText(damageTakenText, amount .. (critical and " CRIT!" or ""), 1, 0, 0, spellId)
+            end
         end
     elseif subEvent == "SPELL_HEAL" or subEvent == "SPELL_PERIODIC_HEAL" then
-        -- Healing events
-        if sourceGUID == UnitGUID("player") then
-            displayHealingText("" .. amount, 0, 1, 0, spellId)  -- Green color for healing done by player
-        elseif destGUID == UnitGUID("player") then
-            displayHealingText("" .. amount, 0, 1, 0, spellId)  -- Green color for healing received by player
+        if amount and sourceGUID == UnitGUID("player") then
+            displayText(healingText, amount .. (critical and " CRIT!" or ""), 0, 1, 0, spellId)
         end
     end
 end)
 
--- Print a message on successful addon load
+-- Interface options for customization
+local function CreateOptionsPanel()
+    local panel = CreateFrame("Frame", "BlueFrogOptionsPanel", UIParent)
+    panel.name = "BlueFrog"
+    InterfaceOptions_AddCategory(panel)
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("BlueFrog Options")
+
+    -- Fade Duration Slider
+    local fadeSlider = CreateFrame("Slider", "BlueFrogFadeSlider", panel, "OptionsSliderTemplate")
+    fadeSlider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -30)
+    fadeSlider:SetMinMaxValues(1, 10)
+    fadeSlider:SetValueStep(1)
+    fadeSlider:SetObeyStepOnDrag(true)
+    fadeSlider:SetWidth(180)
+    fadeSlider:SetValue(BlueFrogSettings.fadeDuration)
+    fadeSlider:SetScript("OnValueChanged", function(self, value)
+        BlueFrogSettings.fadeDuration = value
+        damageText:SetFadeDuration(value)
+        healingText:SetFadeDuration(value)
+        damageTakenText:SetFadeDuration(value)
+    end)
+    _G[fadeSlider:GetName() .. 'Low']:SetText('1 sec')
+    _G[fadeSlider:GetName() .. 'High']:SetText('10 sec')
+    _G[fadeSlider:GetName() .. 'Text']:SetText('Fade Duration: ' .. fadeSlider:GetValue() .. ' sec')
+
+    -- Text Size Slider
+    local textSizeSlider = CreateFrame("Slider", "BlueFrogTextSizeSlider", panel, "OptionsSliderTemplate")
+    textSizeSlider:SetPoint("TOPLEFT", fadeSlider, "BOTTOMLEFT", 0, -50)
+    textSizeSlider:SetMinMaxValues(10, 20)
+    textSizeSlider:SetValueStep(1)
+    textSizeSlider:SetObeyStepOnDrag(true)
+    textSizeSlider:SetWidth(180)
+    textSizeSlider:SetValue(BlueFrogSettings.fontSize)
+    textSizeSlider:SetScript("OnValueChanged", function(self, value)
+        BlueFrogSettings.fontSize = value
+        local font, _, flags = GameFontNormalLarge:GetFont()
+        damageText:SetFont(font, value, flags)
+        healingText:SetFont(font, value, flags)
+        damageTakenText:SetFont(font, value, flags)
+    end)
+    _G[textSizeSlider:GetName() .. 'Low']:SetText('10 pt')
+    _G[textSizeSlider:GetName() .. 'High']:SetText('20 pt')
+    _G[textSizeSlider:GetName() .. 'Text']:SetText('Text Size: ' .. textSizeSlider:GetValue() .. ' pt')
+
+    -- Frame Height Slider
+    local heightSlider = CreateFrame("Slider", "BlueFrogHeightSlider", panel, "OptionsSliderTemplate")
+    heightSlider:SetPoint("TOPLEFT", textSizeSlider, "BOTTOMLEFT", 0, -50)
+    heightSlider:SetMinMaxValues(100, 400)
+    heightSlider:SetValueStep(10)
+    heightSlider:SetObeyStepOnDrag(true)
+    heightSlider:SetWidth(180)
+    heightSlider:SetValue(BlueFrogSettings.frameHeight)
+    heightSlider:SetScript("OnValueChanged", function(self, value)
+        BlueFrogSettings.frameHeight = value
+        damageText:SetHeight(value)
+        healingText:SetHeight(value)
+        damageTakenText:SetHeight(value)
+    end)
+    _G[heightSlider:GetName() .. 'Low']:SetText('100 px')
+    _G[heightSlider:GetName() .. 'High']:SetText('400 px')
+    _G[heightSlider:GetName() .. 'Text']:SetText('Frame Height: ' .. heightSlider:GetValue() .. ' px')
+end
+
+CreateOptionsPanel()
+
 print("|cFF00FF00BlueFrog successfully loaded!|r")
