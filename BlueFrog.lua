@@ -1,3 +1,4 @@
+- version 2.0 changes 
 --updated to show larger resizeable frames for damage and healing,
 --dmg and healing are showen faster, fixed bug for nill dmg,
 --on MoP Remix dubble bronze patch,
