@@ -1,44 +1,45 @@
--- version 2.0 changes 
---updated to show larger resizeable frames for damage and healing,
---dmg and healing are showen faster, fixed bug for nill dmg,
---on MoP Remix dubble bronze patch,
--- added cusom options for text scrolling, height x width and icons
--- added user interface options pannel
---fixed healing frames that prevented user interface from showing
--- addon now works for MoP remix and retail 
+-- BlueFrog Addon v2.0 
 
--- Main addon frame setup
-local frame = CreateFrame("Frame", "BlueFrogFrame", UIParent)
-frame:SetSize(200, 100)
-frame:SetPoint("CENTER")
-frame:SetMovable(true)
-frame:EnableMouse(true)
-frame:RegisterForDrag("LeftButton")
-frame:SetScript("OnDragStart", frame.StartMoving)
-frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+--  settings
+local BlueFrogSettings = (function()
+    local instance = nil
+    local defaultSettings = {
+        fadeDuration = 3,
+        timeVisible = 5,
+        maxLines = 20,
+        fontSize = 12,
+        fontColor = {1, 1, 1},  -- White
+        frameHeight = 200,
+    }
 
--- Storage for addon settings
-BlueFrogSettings = BlueFrogSettings or {
-    fadeDuration = 3,
-    timeVisible = 5,
-    maxLines = 20,
-    fontSize = 12,
-    fontColor = {1, 1, 1},  -- Default to white
-    frameHeight = 200,
-}
+    local function createInstance()
+        return defaultSettings
+    end
 
--- Function to create the message frame
-local function CreateMessageFrame(name, point, relativePoint, xOffset, yOffset)
-    local frame = CreateFrame("ScrollingMessageFrame", name, UIParent, "BackdropTemplate")
-    frame:SetSize(250, BlueFrogSettings.frameHeight)
+    return {
+        getInstance = function()
+            if instance == nil then
+                instance = createInstance()
+            end
+            return instance
+        end
+    }
+end)()
+
+-- frame creation
+local function MessageFrameFactory(frameType, point, relativePoint, xOffset, yOffset)
+    local settings = BlueFrogSettings.getInstance()
+    local frame = CreateFrame("ScrollingMessageFrame", frameType, UIParent, "BackdropTemplate")
+
+    frame:SetSize(250, settings.frameHeight)
     frame:SetPoint(point, UIParent, relativePoint, xOffset, yOffset)
     local font, _, flags = GameFontNormalLarge:GetFont()
-    frame:SetFont(font, BlueFrogSettings.fontSize, flags)
-    frame:SetTextColor(unpack(BlueFrogSettings.fontColor))
+    frame:SetFont(font, settings.fontSize, flags)
+    frame:SetTextColor(unpack(settings.fontColor))
     frame:SetFading(true)
-    frame:SetFadeDuration(BlueFrogSettings.fadeDuration)
-    frame:SetTimeVisible(BlueFrogSettings.timeVisible)
-    frame:SetMaxLines(BlueFrogSettings.maxLines)
+    frame:SetFadeDuration(settings.fadeDuration)
+    frame:SetTimeVisible(settings.timeVisible)
+    frame:SetMaxLines(settings.maxLines)
     frame:SetInsertMode("BOTTOM")
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -49,70 +50,84 @@ local function CreateMessageFrame(name, point, relativePoint, xOffset, yOffset)
         end
     end)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+
     return frame
 end
 
--- Create damage, healing, and damage taken frames
-local damageText = CreateMessageFrame("BlueFrogDamageText", "LEFT", "CENTER", -300, 0)
-local healingText = CreateMessageFrame("BlueFrogHealingText", "RIGHT", "CENTER", 300, 0)
-local damageTakenText = CreateMessageFrame("BlueFrogDamageTakenText", "BOTTOMLEFT", "BOTTOMLEFT", 50, 50)
+-- Create frames for different types of messages
+local frames = {
+    damageText = MessageFrameFactory("BlueFrogDamageText", "LEFT", "CENTER", -300, 0),
+    healingText = MessageFrameFactory("BlueFrogHealingText", "RIGHT", "CENTER", 300, 0),
+    damageTakenText = MessageFrameFactory("BlueFrogDamageTakenText", "BOTTOMLEFT", "BOTTOMLEFT", 50, 50),
+}
 
--- Toggle button to lock and unlock frames
-local toggleButton = CreateFrame("Button", "BlueFrogToggleButton", frame, "UIPanelButtonTemplate")
-toggleButton:SetSize(80, 22)
-toggleButton:SetPoint("TOP", frame, "BOTTOM", 0, -5)
-toggleButton:SetText("Unlock Frames")
-toggleButton:SetMovable(true)
-toggleButton:EnableMouse(true)
-toggleButton:RegisterForDrag("LeftButton")
-toggleButton:SetScript("OnDragStart", function(self)
-    if IsShiftKeyDown() then
-        self:StartMoving()
+-- Handling combat log events and notifying observers
+local CombatEventObserver = {}
+
+function CombatEventObserver.notify(eventType, sourceGUID, destGUID, spellId, amount, critical)
+    if eventType == "damage" then
+        frames.damageText:AddMessage(amount .. (critical and " CRIT!" or ""), 1, 0, 0, spellId)
+    elseif eventType == "healing" then
+        frames.healingText:AddMessage(amount .. (critical and " CRIT!" or ""), 0, 1, 0, spellId)
+    elseif eventType == "damageTaken" then
+        frames.damageTakenText:AddMessage(amount .. (critical and " CRIT!" or ""), 1, 0, 0, spellId)
     end
-end)
-toggleButton:SetScript("OnDragStop", toggleButton.StopMovingOrSizing)
-toggleButton:SetScript("OnClick", function()
-    isMovable = not isMovable
-    toggleButton:SetText(isMovable and "Lock Frames" or "Unlock Frames")
-    
-    -- Set background based on lock state
-    local bgAlpha = isMovable and 0.5 or 0
-    damageText:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
-    damageText:SetBackdropColor(0, 0, 0, bgAlpha)
-    healingText:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
-    healingText:SetBackdropColor(0, 0, 0, bgAlpha)
-    damageTakenText:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
-    damageTakenText:SetBackdropColor(0, 0, 0, bgAlpha)
-end)
-
--- Generic function to display text
-local function displayText(frame, text, r, g, b, spellId)
-    local icon = GetSpellTexture(spellId) or ""
-    frame:AddMessage("|T" .. icon .. ":20:20:0:0:64:64:5:59:5:59|t " .. text, r, g, b)
 end
 
--- Event handler for combat log
+-- Event handling
 local eventHandler = CreateFrame("Frame")
 eventHandler:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 eventHandler:SetScript("OnEvent", function(self, event)
     local _, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, spellId, spellName, _, amount, _, _, _, _, _, critical = CombatLogGetCurrentEventInfo()
 
+    local eventType = nil
     if subEvent == "SPELL_DAMAGE" or subEvent == "RANGE_DAMAGE" or subEvent == "SWING_DAMAGE" then
-        if amount then
-            if sourceGUID == UnitGUID("player") then
-                displayText(damageText, amount .. (critical and " CRIT!" or ""), 1, 0, 0, spellId)
-            elseif destGUID == UnitGUID("player") then
-                displayText(damageTakenText, amount .. (critical and " CRIT!" or ""), 1, 0, 0, spellId)
-            end
-        end
+        eventType = sourceGUID == UnitGUID("player") and "damage" or "damageTaken"
     elseif subEvent == "SPELL_HEAL" or subEvent == "SPELL_PERIODIC_HEAL" then
-        if amount and sourceGUID == UnitGUID("player") then
-            displayText(healingText, amount .. (critical and " CRIT!" or ""), 0, 1, 0, spellId)
-        end
+        eventType = "healing"
+    end
+
+    if eventType and amount then
+        CombatEventObserver.notify(eventType, sourceGUID, destGUID, spellId, amount, critical)
     end
 end)
 
--- Interface options for customization
+-- control frame lock/unlock behavior
+local LockUnlockStrategy = {}
+
+function LockUnlockStrategy.lockFrames(isLocked)
+    local bgAlpha = isLocked and 0.5 or 0
+    for _, frame in pairs(frames) do
+        frame:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
+        frame:SetBackdropColor(0, 0, 0, bgAlpha)
+    end
+end
+
+-- toggle lock/unlock
+local function ToggleCommand()
+    isMovable = not isMovable
+    LockUnlockStrategy.lockFrames(isMovable)
+    return isMovable and "Lock Frames" or "Unlock Frames"
+end
+
+-- Toggle Button
+local function CreateToggleButton(frame)
+    local button = CreateFrame("Button", "BlueFrogToggleButton", frame, "UIPanelButtonTemplate")
+    button:SetSize(80, 22)
+    button:SetPoint("TOP", frame, "BOTTOM", 0, -5)
+    button:SetText("Unlock Frames")
+    button:SetMovable(true)
+    button:EnableMouse(true)
+    button:RegisterForDrag("LeftButton")
+    button:SetScript("OnClick", function()
+        button:SetText(ToggleCommand())
+    end)
+    return button
+end
+
+local toggleButton = CreateToggleButton(frames.damageText) -- Attach to one of the frames
+
+-- Options Panel with settings
 local function CreateOptionsPanel()
     local panel = CreateFrame("Frame", "BlueFrogOptionsPanel", UIParent)
     panel.name = "BlueFrog"
@@ -122,60 +137,42 @@ local function CreateOptionsPanel()
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText("BlueFrog Options")
 
-    -- Fade Duration Slider
-    local fadeSlider = CreateFrame("Slider", "BlueFrogFadeSlider", panel, "OptionsSliderTemplate")
+    -- Use sliders to update settings
+    local function CreateSlider(name, parent, label, minVal, maxVal, step, currentVal, callback)
+        local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
+        slider:SetMinMaxValues(minVal, maxVal)
+        slider:SetValueStep(step)
+        slider:SetWidth(180)
+        slider:SetValue(currentVal)
+        slider:SetScript("OnValueChanged", callback)
+        _G[slider:GetName() .. 'Low']:SetText(tostring(minVal))
+        _G[slider:GetName() .. 'High']:SetText(tostring(maxVal))
+        _G[slider:GetName() .. 'Text']:SetText(label .. ": " .. slider:GetValue())
+        return slider
+    end
+
+    local settings = BlueFrogSettings.getInstance()
+
+    local fadeSlider = CreateSlider("BlueFrogFadeSlider", panel, "Fade Duration", 1, 10, 1, settings.fadeDuration, function(self, value)
+        settings.fadeDuration = value
+        for _, frame in pairs(frames) do frame:SetFadeDuration(value) end
+    end)
     fadeSlider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -30)
-    fadeSlider:SetMinMaxValues(1, 10)
-    fadeSlider:SetValueStep(1)
-    fadeSlider:SetObeyStepOnDrag(true)
-    fadeSlider:SetWidth(180)
-    fadeSlider:SetValue(BlueFrogSettings.fadeDuration)
-    fadeSlider:SetScript("OnValueChanged", function(self, value)
-        BlueFrogSettings.fadeDuration = value
-        damageText:SetFadeDuration(value)
-        healingText:SetFadeDuration(value)
-        damageTakenText:SetFadeDuration(value)
-    end)
-    _G[fadeSlider:GetName() .. 'Low']:SetText('1 sec')
-    _G[fadeSlider:GetName() .. 'High']:SetText('10 sec')
-    _G[fadeSlider:GetName() .. 'Text']:SetText('Fade Duration: ' .. fadeSlider:GetValue() .. ' sec')
 
-    -- Text Size Slider
-    local textSizeSlider = CreateFrame("Slider", "BlueFrogTextSizeSlider", panel, "OptionsSliderTemplate")
+    local textSizeSlider = CreateSlider("BlueFrogTextSizeSlider", panel, "Text Size", 10, 20, 1, settings.fontSize, function(self, value)
+        settings.fontSize = value
+        for _, frame in pairs(frames) do
+            local font, _, flags = GameFontNormalLarge:GetFont()
+            frame:SetFont(font, value, flags)
+        end
+    end)
     textSizeSlider:SetPoint("TOPLEFT", fadeSlider, "BOTTOMLEFT", 0, -50)
-    textSizeSlider:SetMinMaxValues(10, 20)
-    textSizeSlider:SetValueStep(1)
-    textSizeSlider:SetObeyStepOnDrag(true)
-    textSizeSlider:SetWidth(180)
-    textSizeSlider:SetValue(BlueFrogSettings.fontSize)
-    textSizeSlider:SetScript("OnValueChanged", function(self, value)
-        BlueFrogSettings.fontSize = value
-        local font, _, flags = GameFontNormalLarge:GetFont()
-        damageText:SetFont(font, value, flags)
-        healingText:SetFont(font, value, flags)
-        damageTakenText:SetFont(font, value, flags)
-    end)
-    _G[textSizeSlider:GetName() .. 'Low']:SetText('10 pt')
-    _G[textSizeSlider:GetName() .. 'High']:SetText('20 pt')
-    _G[textSizeSlider:GetName() .. 'Text']:SetText('Text Size: ' .. textSizeSlider:GetValue() .. ' pt')
 
-    -- Frame Height Slider
-    local heightSlider = CreateFrame("Slider", "BlueFrogHeightSlider", panel, "OptionsSliderTemplate")
-    heightSlider:SetPoint("TOPLEFT", textSizeSlider, "BOTTOMLEFT", 0, -50)
-    heightSlider:SetMinMaxValues(100, 400)
-    heightSlider:SetValueStep(10)
-    heightSlider:SetObeyStepOnDrag(true)
-    heightSlider:SetWidth(180)
-    heightSlider:SetValue(BlueFrogSettings.frameHeight)
-    heightSlider:SetScript("OnValueChanged", function(self, value)
-        BlueFrogSettings.frameHeight = value
-        damageText:SetHeight(value)
-        healingText:SetHeight(value)
-        damageTakenText:SetHeight(value)
+    local heightSlider = CreateSlider("BlueFrogHeightSlider", panel, "Frame Height", 100, 400, 10, settings.frameHeight, function(self, value)
+        settings.frameHeight = value
+        for _, frame in pairs(frames) do frame:SetHeight(value) end
     end)
-    _G[heightSlider:GetName() .. 'Low']:SetText('100 px')
-    _G[heightSlider:GetName() .. 'High']:SetText('400 px')
-    _G[heightSlider:GetName() .. 'Text']:SetText('Frame Height: ' .. heightSlider:GetValue() .. ' px')
+    heightSlider:SetPoint("TOPLEFT", textSizeSlider, "BOTTOMLEFT", 0, -50)
 end
 
 CreateOptionsPanel()
